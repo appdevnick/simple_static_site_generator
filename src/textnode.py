@@ -1,5 +1,6 @@
 from enum import Enum
 from leafnode import LeafNode
+from typing import List
 
 class TextType(Enum):
     NORMAL_TEXT = "normal text",
@@ -24,16 +25,25 @@ class TextNode:
     def text_node_to_html_node(self):
         match (self.text_type):
             case (TextType.NORMAL_TEXT):
-                return LeafNode(None, self.text)
+                return LeafNode(None, self.text, None, None)
             case (TextType.BOLD_TEXT):
-                return LeafNode("b", self.text)
+                return LeafNode("b", self.text, None, None)
             case (TextType.ITALIC_TEXT):
-                return LeafNode("i", self.text)
+                return LeafNode("i", self.text, None, None)
             case (TextType.IMAGE):
-                return LeafNode("img", None, None, {"src": {self.url}, "alt": {self.text}})
+                return LeafNode("img", "", None, {"src": self.url, "alt": self.text})
             case (TextType.LINK):
-                return LeafNode("a", self.text, None, {"href": {self.url}})
+                return LeafNode("a", self.text, None, {"href": self.url})
             case (TextType.CODE):
                 return LeafNode("code", self.text, None, None)
             case _:
                 raise Exception(f"Unknown text_type: {self.text_type}")
+            
+        def split_nodes_delimiter(old_nodes: List, delimiter, text_type):
+            final_nodes_list: List = []
+            for current_node in old_nodes:
+                if current_node.text_type != TextType.NORMAL_TEXT:
+                    final_nodes_list.extend([current_node])
+                else:
+                    new_node_list = current_node.split(delimiter)
+                    print(f"NEW NODE LIST: {new_node_list}")

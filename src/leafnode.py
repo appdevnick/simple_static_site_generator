@@ -6,13 +6,16 @@ class LeafNode(HTMLNode):
         if children:
             raise Exception("Leaf Node was passed children")
 
-        if not value:
+        if value == None:
             raise ValueError("Leaf Node was not given a value")
 
         super().__init__(tag, value, None, props)
+
+    def __repr__(self):
+        return f"LeafNode({self.tag}, {self.value}, {self.props})"
 
     def to_html(self):
         if not self.tag:
             return f"{self.value}"
         else:
-            return f"<{self.tag + self.props_to_html()}>{self.value}</{self.tag}>".strip()
+            return f"<{self.tag}{self.props_to_html()}>{self.value}</{self.tag}>".strip()
