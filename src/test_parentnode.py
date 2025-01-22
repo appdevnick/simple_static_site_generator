@@ -1,6 +1,7 @@
 import unittest
 from parentnode import ParentNode
 from leafnode import LeafNode
+from textnode import TextNode
 
 class TestParentNode(unittest.TestCase):
     def test_to_html_with_valid_data(self):
@@ -19,6 +20,17 @@ class TestParentNode(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             ParentNode("div", []).to_html()
         self.assertEqual(str(context.exception), "No children provided to a ParentNode")
+
+    def test_nested_parents(self):
+        node_tree = ParentNode("div", [
+            ParentNode("div", [
+                LeafNode("b", "this is a bold paragraph in a leaf node", None, {"data-id": "69"})
+            ])
+        ], {"class": "blue-border"})
+
+        self.assertEqual(node_tree.to_html(), "<div class=\"blue-border\"><div><b data-id=\"69\">this is a bold paragraph in a leaf node</b></div></div>")
+
+    
 
 if __name__ == "__main__":
     unittest.main()
