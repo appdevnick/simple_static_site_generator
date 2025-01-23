@@ -20,7 +20,7 @@ class TextNode:
         return self.text == other.text and self.text_type == other.text_type and self.url == other.url
 
     def __repr__(self):
-        return f"TextNode({self.text}, {self.text_type.value}, {self.url})"
+        return f"TextNode({self.text}, {self.text_type}, {self.url})"
 
     def text_node_to_html_node(self):
         match (self.text_type):
@@ -39,11 +39,42 @@ class TextNode:
             case _:
                 raise Exception(f"Unknown text_type: {self.text_type}")
             
-        def split_nodes_delimiter(old_nodes: List, delimiter, text_type):
-            final_nodes_list: List = []
-            for current_node in old_nodes:
-                if current_node.text_type != TextType.NORMAL_TEXT:
-                    final_nodes_list.extend([current_node])
-                else:
-                    new_node_list = current_node.split(delimiter)
-                    print(f"NEW NODE LIST: {new_node_list}")
+    def split_nodes_delimiter(self, old_nodes: List, delimiter, text_type):
+        final_nodes_list = []
+
+        for current_node in old_nodes:
+            intermediate_list = []
+            if current_node.text_type != TextType.NORMAL_TEXT:
+                final_nodes_list.append(current_node)
+            else:
+                starts_with_delimited = current_node.text[0] == delimiter
+                ends_with_delimited = current_node.text[-1] == delimiter
+                current_is_delimited = starts_with_delimited
+
+                new_node_list = current_node.text.split(delimiter)
+
+                # a proper number of delimiters will always end up with an odd-numbered list of nodes:
+                if len(new_node_list) % 2 != 1:
+                    raise Exception("Unclosed delimiter(s) in original text")
+
+                # remove first item in list if the original string starts with a delimited phrase because
+                # otherwise the resulting list will be screwed up
+                if starts_with_delimited:
+                    new_node_list = new_node_list[1:]
+
+                for new_node in new_node_list:
+                    if current_is_delimited:
+                        intermediate_list.append(TextNode(new_node, text_type))
+                    else:
+                        intermediate_list.append(TextNode(new_node, TextType.NORMAL_TEXT))
+                    
+                    current_is_delimited = not current_is_delimited
+
+            # if the original string ended with relevant delimited text, the final
+            # TextNode in the list will be empty, so just drop it
+            if ends_with_delimited:
+                final_nodes_list.extend(intermediate_list[:-1])
+            else:
+                final_nodes_list.extend(intermediate_list)
+
+        return final_nodes_list
