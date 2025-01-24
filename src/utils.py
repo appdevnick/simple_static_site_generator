@@ -132,3 +132,19 @@ def markdown_to_blocks(markdown):
     blocks = list(map(lambda x: x.strip(), blocks))
     blocks = list(filter(lambda x: x != "" and x != "\n" and x != " ", blocks))
     return blocks
+
+def block_to_block_type(markdown_block):
+    if re.match(r'^#{1,6}\s+.*$', markdown_block):
+        return "heading"
+    if re.match(r'^```.*```$', markdown_block, re.DOTALL):
+        return "code"
+    if re.match(r'^(>\s?.*\n?)+$', markdown_block):
+        return "quote"
+    if re.match(r'^(\s*[*-]\s.*\n?)+$', markdown_block):
+        return "unordered_list"
+    lines = markdown_block.strip().split("\n")
+    if all(re.match(rf'^{i}\.\s.*$', line) for i, line in enumerate(lines, start=1)):
+        return "ordered_list"
+    else:
+        return "paragraph"
+
