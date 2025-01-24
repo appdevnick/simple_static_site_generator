@@ -1,6 +1,7 @@
 import unittest
 from textnode import TextNode, TextType
 from leafnode import LeafNode
+from utils import split_nodes_delimiter
 
 class TestTextNode(unittest.TestCase):
     def test_eq(self):
@@ -50,7 +51,7 @@ class TestTextNode(unittest.TestCase):
 
     def test_split_nodes_delimiter_normal(self):
         node = TextNode("This is a `code` node", TextType.NORMAL_TEXT)
-        nodes = node.split_nodes_delimiter([node], "`", TextType.CODE)
+        nodes = split_nodes_delimiter([node], "`", TextType.CODE)
         expected_nodes = [
             TextNode("This is a ", TextType.NORMAL_TEXT),
             TextNode("code", TextType.CODE),
@@ -60,7 +61,7 @@ class TestTextNode(unittest.TestCase):
 
     def test_split_nodes_delimiter_multiple(self):
         node = TextNode("This is a `code` node with `multiple` delimiters", TextType.NORMAL_TEXT)
-        nodes = node.split_nodes_delimiter([node], "`", TextType.CODE)
+        nodes = split_nodes_delimiter([node], "`", TextType.CODE)
         expected_nodes = [
             TextNode("This is a ", TextType.NORMAL_TEXT),
             TextNode("code", TextType.CODE),
@@ -72,13 +73,13 @@ class TestTextNode(unittest.TestCase):
 
     def test_split_nodes_delimiter_no_delimiter(self):
         node = TextNode("This is a text node without delimiters", TextType.NORMAL_TEXT)
-        nodes = node.split_nodes_delimiter([node], "`", TextType.CODE)
+        nodes = split_nodes_delimiter([node], "`", TextType.CODE)
         expected_nodes = [node]
         self.assertEqual(nodes, expected_nodes)
 
     def test_split_nodes_delimiter_starts_with_delimiter(self):
         node = TextNode("`code` at the start", TextType.NORMAL_TEXT)
-        nodes = node.split_nodes_delimiter([node], "`", TextType.CODE)
+        nodes = split_nodes_delimiter([node], "`", TextType.CODE)
         expected_nodes = [
             TextNode("code", TextType.CODE),
             TextNode(" at the start", TextType.NORMAL_TEXT)
@@ -87,7 +88,7 @@ class TestTextNode(unittest.TestCase):
 
     def test_split_nodes_delimiter_ends_with_delimiter(self):
         node = TextNode("Ends with `code`", TextType.NORMAL_TEXT)
-        nodes = node.split_nodes_delimiter([node], "`", TextType.CODE)        
+        nodes = split_nodes_delimiter([node], "`", TextType.CODE)        
         expected_nodes = [
             TextNode("Ends with ", TextType.NORMAL_TEXT),
             TextNode("code", TextType.CODE)
@@ -97,13 +98,13 @@ class TestTextNode(unittest.TestCase):
     def test_split_nodes_delimiter_incorrect_number_delimiters(self):
         node = TextNode("This has the wrong *number of asterisk delimiters", TextType.NORMAL_TEXT)
         with self.assertRaises(Exception):
-            final_list = node.split_nodes_delimiter([node], "*", TextType.BOLD_TEXT)
+            final_list = split_nodes_delimiter([node], "*", TextType.BOLD_TEXT)
 
     def test_split_nodes_delimiter_with_multiple_inputs(self):
         node1 = TextNode("There is some `code at the end`", TextType.NORMAL_TEXT)
         node2 = TextNode("`Here is code` at the start", TextType.NORMAL_TEXT)
 
-        nodes = node1.split_nodes_delimiter([node1, node2], "`", TextType.CODE)
+        nodes = split_nodes_delimiter([node1, node2], "`", TextType.CODE)
 
         expected_nodes = [
             TextNode("There is some ", TextType.NORMAL_TEXT),

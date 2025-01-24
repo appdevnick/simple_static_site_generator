@@ -1,5 +1,5 @@
 import unittest
-from utils import extract_markdown_images, extract_markdown_links, split_nodes_link, split_nodes_image, text_to_textnodes
+from utils import markdown_to_blocks, extract_markdown_images, extract_markdown_links, split_nodes_link, split_nodes_image, text_to_textnodes
 from textnode import TextNode, TextType
 
 class TestTextNode(unittest.TestCase):
@@ -152,6 +152,63 @@ class TestTextNode(unittest.TestCase):
             TextNode(" with text.", TextType.NORMAL_TEXT),
         ]
         self.assertListEqual(nodes, desired_result)
+
+    def test_single_block(self):
+        markdown = "This is a single block of text."
+        blocks = markdown_to_blocks(markdown)
+        self.assertListEqual(["This is a single block of text."], blocks)
+
+    def test_multiple_blocks(self):
+        markdown = "This is the first block.\n\nThis is the second block."
+        blocks = markdown_to_blocks(markdown)
+        self.assertListEqual(
+            ["This is the first block.", "This is the second block."], blocks
+        )
+
+    def test_blocks_with_whitespace(self):
+        markdown = "  This is the first block.  \n\n  This is the second block.  "
+        blocks = markdown_to_blocks(markdown)
+        self.assertListEqual(
+            ["This is the first block.", "This is the second block."], blocks
+        )
+
+    def test_empty_blocks(self):
+        markdown = "\n\n"
+        blocks = markdown_to_blocks(markdown)
+        self.assertListEqual([], blocks)
+
+    def test_mixed_content_blocks(self):
+        markdown = "This is **bold** text.\n\nThis is *italic* text.\n\nThis is a [link](https://example.com)."
+        blocks = markdown_to_blocks(markdown)
+        self.assertListEqual(
+            [
+                "This is **bold** text.",
+                "This is *italic* text.",
+                "This is a [link](https://example.com).",
+            ],
+            blocks,
+        )
+
+    def test_complex_markdown(self):
+        markdown = """
+        # This is a heading
+        
+        This is a paragraph of text. It has some **bold** and *italic* words inside of it.
+
+        * This is the first list item in a list block
+        * This is a list item
+        * This is another list item
+        """
+        
+        blocks = markdown_to_blocks(markdown)
+        self.assertListEqual(
+        [
+            "# This is a heading",
+            "This is a paragraph of text. It has some **bold** and *italic* words inside of it.",
+            "* This is the first list item in a list block\n* This is a list item\n* This is another list item"
+        ],
+        blocks,
+        )
 
 if __name__ == "__main__":
     unittest.main()
