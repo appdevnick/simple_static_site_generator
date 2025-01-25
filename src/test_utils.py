@@ -1,5 +1,6 @@
 import unittest
-from utils import block_to_block_type, markdown_to_blocks, extract_markdown_images, extract_markdown_links, split_nodes_link, split_nodes_image, text_to_textnodes
+from pprint import pprint
+from utils import block_to_block_type, markdown_to_blocks, extract_markdown_images, extract_markdown_links, markdown_to_html_node, split_nodes_link, split_nodes_image, text_to_textnodes
 from textnode import TextNode, TextType
 
 class TestTextNode(unittest.TestCase):
@@ -223,7 +224,7 @@ class TestTextNode(unittest.TestCase):
     def test_block_to_block_type_quote(self):
         block = "> This is a quote\n> with multiple lines"
         block_type = block_to_block_type(block)
-        self.assertEqual(block_type, "quote")
+        self.assertEqual(block_type, "blockquote")
 
     def test_block_to_block_type_unordered_list(self):
         block = "* Item 1\n* Item 2\n* Item 3"
@@ -244,6 +245,42 @@ class TestTextNode(unittest.TestCase):
         block = "This is a paragraph with **bold** and *italic* text."
         block_type = block_to_block_type(block)
         self.assertEqual(block_type, "paragraph")
+
+    def test_markdown_to_html_nodes(self):
+        # markdown = """
+        # # Heading Level 1
+
+        # ## Heading Level 2
+
+        # > This is a blockquote.
+        # > It can span multiple lines.
+
+        # * Unordered list item 1
+        # * Unordered list item 2
+        # * Unordered list item 3
+
+        # - Another unordered list item
+        # - Yet another unordered list item
+
+        # 1. Ordered list item 1
+        # 2. Ordered list item 2
+        # 3. Ordered list item 3
+        # """
+
+        # markdown = """
+        # * Unordered list item 1
+        # * Unordered list item 2
+        # * Unordered list item 3
+        # """
+
+        markdown = """
+        1. Ordered list item 1
+        2. Ordered list item 2
+        3. Ordered list item 3
+        """
+
+        node = markdown_to_html_node(markdown)
+        return True
 
 if __name__ == "__main__":
     unittest.main()
