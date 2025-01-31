@@ -1,0 +1,47 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Markdown Conversion Demo</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .markdown-source, .html-output { 
+            background-color: #f4f4f4; 
+            border: 1px solid #ddd; 
+            padding: 15px; 
+            margin-bottom: 20px; 
+            white-space: pre-wrap; 
+        }
+    </style>
+</head>
+<body>
+    <h1>Markdown to HTML Conversion</h1>
+    
+    <h2>Original Markdown</h2>
+    <pre class="markdown-source">
+# Welcome to My Static Site Generator
+
+This is a **simple** markdown *converter* for learning purposes.
+
+## Features
+- Easy to understand
+- Supports basic markdown
+- Great for learning
+
+### Code Example
+```
+def hello_world():
+    print("Learning is fun!")
+```
+
+> A wise quote about coding goes here.
+
+Check out my [GitHub](https://github.com/example)!
+</pre>
+    
+    <h2>Converted HTML</h2>
+    <div class="html-output"><div><h1>Welcome to My Static Site Generator</h1><p>This is a <b>simple</b> markdown <i>converter</i> for learning purposes.</p><h2>Features</h2><ul><li>Easy to understand</li><li>Supports basic markdown</li><li>Great for learning</li></ul><h3>Code Example</h3><code>def hello_world():
+    print("Learning is fun!")</code><blockquote>A wise quote about coding goes here.</blockquote><p>Check out my <a href="https://github.com/example">GitHub</a>!</p></div></div>
+</body>
+</html>

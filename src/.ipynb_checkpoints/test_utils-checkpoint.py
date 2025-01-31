@@ -294,21 +294,11 @@ class TestTextNode(unittest.TestCase):
         """
         node = markdown_to_html_node(markdown)
         to_html = node.to_html()
-        
-        # Check the structure and content, not exact whitespace
-        self.assertTrue(to_html.startswith('<div>'), "HTML should start with a div")
-        self.assertTrue(to_html.endswith('</div>'), "HTML should end with a div")
-        
-        # Extract the code content
-        code_content = to_html[len('<div><code>'):-len('</code></div>')]
-        
-        # Check the code content
-        self.assertIn('def hello_world():', code_content)
-        self.assertIn('print("Hello, world!")', code_content)
-        
-        # Verify it's a code block
-        self.assertIn('<code>', to_html)
-        self.assertIn('</code>', to_html)
+        self.assertEqual(
+            to_html,
+            """<div><code>def hello_world():    
+                print("Hello, world!")</code></div>"""
+    )
 
     def test_markdown_to_html_nodes_with_mixed_content(self):
         markdown = """
@@ -325,30 +315,9 @@ class TestTextNode(unittest.TestCase):
             '<div><h1>Heading</h1><p>This is a paragraph with <b>bold</b> and <i>italic</i> text and a <a href="https://example.com">link</a>.</p><img src="https://example.com/image.png" alt="image"/></div>'
         )
 
-    def test_markdown_to_html_node(self):
-        # Test a markdown string with various text types
-        markdown = """# Heading 1
+    if __name__ == "__main__":
+        unittest.main()
 
-This is a **bold** and *italic* text with some `code`.
-
-- List item 1
-- List item 2
-
-> A blockquote example"""
-
-        html_node = markdown_to_html_node(markdown)
-        html_string = html_node.to_html()
-        
-        # Check for presence of key HTML elements
-        self.assertIn("<h1>Heading 1</h1>", html_string)
-        self.assertIn("<b>bold</b>", html_string)
-        self.assertIn("<i>italic</i>", html_string)
-        self.assertIn("<code>code</code>", html_string)
-        self.assertIn("<li>List item 1</li>", html_string)
-        self.assertIn("<blockquote>", html_string)
-        
-        # Ensure no raw TextType representations are in the output
-        self.assertNotIn("TextType.", html_string)
 
 if __name__ == "__main__":
     unittest.main()
