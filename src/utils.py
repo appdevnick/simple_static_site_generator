@@ -157,7 +157,6 @@ def markdown_to_blocks(markdown):
             # If we're ending a code block, add it to blocks
             if not in_code_block:
                 block = '\n'.join(current_block)
-                print(f"DEBUG: Found code block:\n{block}")
                 blocks.append(block)
                 current_block = []
             continue
@@ -190,32 +189,21 @@ def markdown_to_blocks(markdown):
         blocks.append('\n'.join(current_block))
     
     blocks = [b.strip() for b in blocks if b.strip()]
-    print("DEBUG: All blocks:")
-    for i, block in enumerate(blocks):
-        print(f"Block {i}:\n{block}\n---")
     return blocks
 
 
 def block_to_block_type(markdown_block):
     lines = markdown_block.split('\n')
-    print(f"DEBUG: Checking block type for:\n{markdown_block}\n---")
-    
     if re.match(r'^#{1,6} ', lines[0]):
-        print("DEBUG: Found heading")
         return 'heading'
     if lines[0].strip() == '```' and lines[-1].strip() == '```':
-        print("DEBUG: Found code block")
         return 'code'
     if all(line.startswith('>') for line in lines):
-        print("DEBUG: Found quote")
         return 'quote'
     if all(re.match(r'^[*-] ', line) for line in lines):
-        print("DEBUG: Found unordered list")
         return 'unordered_list'
     if all(re.match(r'^\d+\. ', line) for line in lines):
-        print("DEBUG: Found ordered list")
         return 'ordered_list'
-    print("DEBUG: Defaulting to paragraph")
     return 'paragraph'
 
 
