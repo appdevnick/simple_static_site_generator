@@ -27,37 +27,43 @@ def split_nodes_delimiter(old_nodes: List, delimiter, text_type):
         intermediate_list = []
         if current_node.text_type != TextType.NORMAL_TEXT:
             final_nodes_list.append(current_node)
-        else:
-            starts_with_delimited = current_node.text[0] == delimiter
-            ends_with_delimited = current_node.text[-1] == delimiter
-            current_is_delimited = starts_with_delimited
+            continue
 
-            new_node_list = current_node.text.split(delimiter)
+        # If no delimiter in the text, just return the original node
+        if delimiter not in current_node.text:
+            final_nodes_list.append(current_node)
+            continue
 
-            # a proper number of delimiters will always end up with an odd-numbered list of nodes:
-            if len(new_node_list) % 2 != 1 and current_node.text[0] != delimiter:
-                raise Exception("Unclosed delimiter(s) in original text")
+        starts_with_delimited = current_node.text[0] == delimiter
+        ends_with_delimited = current_node.text[-1] == delimiter
+        current_is_delimited = starts_with_delimited
 
-            # remove first item in list if the original string starts with a delimited phrase because
-            # otherwise the resulting list will be screwed up
-            if starts_with_delimited:
-                new_node_list = new_node_list[1:]
+        new_node_list = current_node.text.split(delimiter)
 
-            for new_node in new_node_list:
-                if current_is_delimited:
-                    intermediate_list.append(TextNode(new_node, text_type))
-                else:
-                    intermediate_list.append(
-                        TextNode(new_node, TextType.NORMAL_TEXT))
+        # a proper number of delimiters will always end up with an odd-numbered list of nodes:
+        if len(new_node_list) % 2 != 1 and current_node.text[0] != delimiter:
+            raise Exception("Unclosed delimiter(s) in original text")
 
-                current_is_delimited = not current_is_delimited
+        # remove first item in list if the original string starts with a delimited phrase because
+        # otherwise the resulting list will be screwed up
+        if starts_with_delimited:
+            new_node_list = new_node_list[1:]
 
-            # if the original string ended with relevant delimited text, the final
-            # TextNode in the list will be empty, so just drop it
-            if ends_with_delimited:
-                final_nodes_list.extend(intermediate_list[:-1])
+        for new_node in new_node_list:
+            if current_is_delimited:
+                intermediate_list.append(TextNode(new_node, text_type))
             else:
-                final_nodes_list.extend(intermediate_list)
+                intermediate_list.append(
+                    TextNode(new_node, TextType.NORMAL_TEXT))
+
+            current_is_delimited = not current_is_delimited
+
+        # if the original string ended with relevant delimited text, the final
+        # TextNode in the list will be empty, so just drop it
+        if ends_with_delimited:
+            final_nodes_list.extend(intermediate_list[:-1])
+        else:
+            final_nodes_list.extend(intermediate_list)
 
     return final_nodes_list
 
@@ -444,5 +450,10 @@ def extract_title(markdown: str) -> str:
     raise Exception("No h1 header found in document")
 
 def generate_page(from_path: str, template_path: str, dest_path: str):
-    print(f"Generating page from {from_path} to {dest_path} using {template_path}")
-    
+    with open(from_path, 'r') as from_file, open(template_path, 'r') as template_file, open(dest_path, 'w') as output_file:
+        template = template_file.read()
+        source_markdown = from_file.read()
+        html_version = markdown_to_html_node(source_markdown)
+        title = extract_title(source_markdown)
+        new_document = re.sub(r'<title>.*?</title>', f'<title>{title}</title>', template).replace("{{ Content }}", html_version.to_html())
+        output_file.write(new_document)
