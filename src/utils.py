@@ -434,3 +434,11 @@ def copy_from_to_dir(source_dir: str, dest_dir: str) -> None:
         # If it's a directory, recursively copy the directory
         elif os.path.isdir(src_path):
             copy_from_to_dir(src_path, dest_path)
+
+def extract_title(markdown: str) -> str:
+    for line in markdown.split("\n"):
+        matches = re.split(r"^#", line)
+        if len(matches) > 1:
+            return matches[1].strip()
+        
+    raise Exception("No h1 header found in document")

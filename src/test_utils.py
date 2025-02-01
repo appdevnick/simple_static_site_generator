@@ -2,7 +2,7 @@ import unittest
 from pprint import pprint
 from utils import (block_to_block_type, markdown_to_blocks, extract_markdown_images,
                   extract_markdown_links, markdown_to_html_node, split_nodes_link,
-                  split_nodes_image, text_to_textnodes, BlockType, copy_from_to_dir)
+                  split_nodes_image, text_to_textnodes, BlockType, copy_from_to_dir, extract_title)
 from textnode import TextNode, TextType
 import os
 import shutil
@@ -377,6 +377,11 @@ This is a **bold** and *italic* text with some `code`.
         
         # Ensure no raw TextType representations are in the output
         self.assertNotIn("TextType.", html_string)
+
+    def test_extract_title(self):
+        markdown = "# My Simple Title\n\nThis is a plain sentence."
+        title = extract_title(markdown)
+        self.assertEqual(title, "My Simple Title")
 
 class TestCopyFromToDir(unittest.TestCase):
     def setUp(self):
