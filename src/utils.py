@@ -374,7 +374,7 @@ def block_to_html_node(block: str) -> HTMLNode:
             html_children = [node.text_node_to_html_node() for node in children]
             return ParentNode("blockquote", html_children)
         
-        case "paragraph":
+        case BlockType.PARAGRAPH:
             children = text_to_textnodes(block)
             html_children = [node.text_node_to_html_node() for node in children]
             return ParentNode("p", html_children)
