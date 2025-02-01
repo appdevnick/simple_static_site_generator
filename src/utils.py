@@ -229,26 +229,30 @@ def block_to_block_type(markdown_block: str) -> BlockType:
             - 'ordered_list': A numbered list (1., 2., etc)
             - 'paragraph': Any other type of text block
     """
-    lines = markdown_block.split('\n')
+    # Handle empty blocks
+    if not markdown_block.strip():
+        return BlockType.PARAGRAPH
     
-    # Check for heading (must be at start of first line)
-    if re.match(r'^#{1,6} ', lines[0]):
+    # Check for heading (must be at start)
+    if re.match(r'^#{1,6} ', markdown_block.lstrip()):
         return BlockType.HEADING
     
     # Check for code block (must be wrapped in ```)
-    if lines[0].strip() == '```' and lines[-1].strip() == '```':
+    lines = markdown_block.strip().split('\n')
+    if len(lines) >= 2 and markdown_block.strip().startswith('```') and markdown_block.strip().endswith('```'):
         return BlockType.CODE
     
-    # Check for blockquote (all lines must start with >)
-    if all(line.startswith('>') for line in lines):
+    # Check for blockquote (all non-empty lines must start with >)
+    non_empty_lines = [line.strip() for line in lines if line.strip()]
+    if all(line.startswith('>') for line in non_empty_lines):
         return BlockType.QUOTE
     
-    # Check for unordered list (all lines must start with - or *)
-    if all(re.match(r'^[*-] ', line) for line in lines):
+    # Check for unordered list (all non-empty lines must start with - or *)
+    if all(re.match(r'^[*-] ', line.strip()) for line in non_empty_lines):
         return BlockType.UNORDERED_LIST
     
-    # Check for ordered list (all lines must start with number.)
-    if all(re.match(r'^\d+\. ', line) for line in lines):
+    # Check for ordered list (all non-empty lines must start with number.)
+    if all(re.match(r'^\d+\. ', line.strip()) for line in non_empty_lines):
         return BlockType.ORDERED_LIST
     
     # Default to paragraph if no other type matches
@@ -376,7 +380,13 @@ def block_to_html_node(block: str) -> HTMLNode:
         
         case BlockType.PARAGRAPH:
             children = text_to_textnodes(block)
-            html_children = [node.text_node_to_html_node() for node in children]
+            html_children = []
+            for node in children:
+                html_node = node.text_node_to_html_node()
+                if isinstance(html_node, LeafNode) and html_node.tag == 'img':
+                    # Don't wrap images in paragraphs
+                    return html_node
+                html_children.append(html_node)
             return ParentNode("p", html_children)
         
         case _:

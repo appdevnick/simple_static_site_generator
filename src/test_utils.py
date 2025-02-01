@@ -1,6 +1,8 @@
 import unittest
 from pprint import pprint
-from utils import block_to_block_type, markdown_to_blocks, extract_markdown_images, extract_markdown_links, markdown_to_html_node, split_nodes_link, split_nodes_image, text_to_textnodes
+from utils import (block_to_block_type, markdown_to_blocks, extract_markdown_images,
+                  extract_markdown_links, markdown_to_html_node, split_nodes_link,
+                  split_nodes_image, text_to_textnodes, BlockType)
 from textnode import TextNode, TextType
 
 
@@ -201,15 +203,7 @@ class TestTextNode(unittest.TestCase):
         )
 
     def test_complex_markdown(self):
-        markdown = """
-        # This is a heading
-        
-        This is a paragraph of text. It has some **bold** and *italic* words inside of it.
-
-        * This is the first list item in a list block
-        * This is a list item
-        * This is another list item
-        """
+        markdown = "# This is a heading\n\nThis is a paragraph of text. It has some **bold** and *italic* words inside of it.\n\n* This is the first list item in a list block\n* This is a list item\n* This is another list item"
 
         blocks = markdown_to_blocks(markdown)
         self.assertListEqual(
@@ -222,61 +216,98 @@ class TestTextNode(unittest.TestCase):
         )
 
     def test_block_to_block_type_heading(self):
-        block = "# This is a heading"
-        block_type = block_to_block_type(block)
-        self.assertEqual(block_type, "heading")
+        # Test different heading levels
+        for i in range(1, 7):
+            block = "#" * i + " This is a heading"
+            block_type = block_to_block_type(block)
+            self.assertEqual(block_type, BlockType.HEADING)
 
     def test_block_to_block_type_code(self):
+        # Test basic code block
         block = "```\ncode block\n```"
         block_type = block_to_block_type(block)
-        self.assertEqual(block_type, "code")
+        self.assertEqual(block_type, BlockType.CODE)
+        
+        # Test code block with language
+        block = "```python\ncode block\n```"
+        block_type = block_to_block_type(block)
+        self.assertEqual(block_type, BlockType.CODE)
 
     def test_block_to_block_type_quote(self):
+        # Test single line quote
+        block = "> This is a quote"
+        block_type = block_to_block_type(block)
+        self.assertEqual(block_type, BlockType.QUOTE)
+        
+        # Test multi-line quote
         block = "> This is a quote\n> with multiple lines"
         block_type = block_to_block_type(block)
-        self.assertEqual(block_type, "blockquote")
+        self.assertEqual(block_type, BlockType.QUOTE)
+        
+        # Test quote with mixed indentation
+        block = ">This is a quote\n  > with mixed indentation"
+        block_type = block_to_block_type(block)
+        self.assertEqual(block_type, BlockType.QUOTE)
 
     def test_block_to_block_type_unordered_list(self):
+        # Test asterisk list
         block = "* Item 1\n* Item 2\n* Item 3"
         block_type = block_to_block_type(block)
-        self.assertEqual(block_type, "unordered_list")
+        self.assertEqual(block_type, BlockType.UNORDERED_LIST)
+        
+        # Test dash list
+        block = "- Item 1\n- Item 2\n- Item 3"
+        block_type = block_to_block_type(block)
+        self.assertEqual(block_type, BlockType.UNORDERED_LIST)
+        
+        # Test mixed indentation
+        block = "* Item 1\n  * Subitem\n* Item 2"
+        block_type = block_to_block_type(block)
+        self.assertEqual(block_type, BlockType.UNORDERED_LIST)
 
     def test_block_to_block_type_ordered_list(self):
+        # Test sequential numbers
         block = "1. First item\n2. Second item\n3. Third item"
         block_type = block_to_block_type(block)
-        self.assertEqual(block_type, "ordered_list")
+        self.assertEqual(block_type, BlockType.ORDERED_LIST)
+        
+        # Test non-sequential numbers (should still work)
+        block = "1. First item\n5. Second item\n10. Third item"
+        block_type = block_to_block_type(block)
+        self.assertEqual(block_type, BlockType.ORDERED_LIST)
+        
+        # Test with indentation
+        block = "1. First item\n    2. Subitem\n3. Third item"
+        block_type = block_to_block_type(block)
+        self.assertEqual(block_type, BlockType.ORDERED_LIST)
 
     def test_block_to_block_type_paragraph(self):
+        # Test simple paragraph
         block = "This is a paragraph of text."
         block_type = block_to_block_type(block)
-        self.assertEqual(block_type, "paragraph")
-
-    def test_block_to_block_type_mixed_content(self):
+        self.assertEqual(block_type, BlockType.PARAGRAPH)
+        
+        # Test multi-line paragraph
+        block = "This is a paragraph\nthat spans multiple\nlines of text."
+        block_type = block_to_block_type(block)
+        self.assertEqual(block_type, BlockType.PARAGRAPH)
+        
+        # Test paragraph with inline formatting
         block = "This is a paragraph with **bold** and *italic* text."
         block_type = block_to_block_type(block)
-        self.assertEqual(block_type, "paragraph")
+        self.assertEqual(block_type, BlockType.PARAGRAPH)
+
+    def test_block_to_block_type_code_with_indentation(self):
+        block = "```\ndef example():\n    print('Hello')\n\nexample()\n```"
+        node = markdown_to_html_node(block)
+        html = node.to_html()
+        self.assertIn('def example():', html)
+        self.assertIn('    print(\'Hello\')', html)
+        self.assertIn('example()', html)
 
     def test_markdown_to_html_nodes(self):
         self.maxDiff = None
-        markdown = """
-        # Heading Level 1
-
-        ## Heading Level 2
-
-        > This is a blockquote.
-        > It can span multiple lines.
-
-        * Unordered list item 1
-        * Unordered list item 2
-        * Unordered list item 3
-
-        - Another unordered list item
-        - Yet another unordered list item
-
-        1. Ordered list item 1
-        2. Ordered list item 2
-        3. Ordered list item 3
-        """
+        markdown = "# Heading Level 1\n\n## Heading Level 2\n\n> This is a blockquote.\n> It can span multiple lines.\n\n* Unordered list item 1\n* Unordered list item 2\n* Unordered list item 3\n\n- Another unordered list item\n- Yet another unordered list item\n\n1. Ordered list item 1\n2. Ordered list item 2\n3. Ordered list item 3"
 
         node = markdown_to_html_node(markdown)
         to_html = node.to_html()
@@ -311,13 +342,7 @@ class TestTextNode(unittest.TestCase):
         self.assertIn('</code>', to_html)
 
     def test_markdown_to_html_nodes_with_mixed_content(self):
-        markdown = """
-        # Heading
-
-        This is a paragraph with **bold** and *italic* text and a [link](https://example.com).
-
-        ![image](https://example.com/image.png)
-        """
+        markdown = "# Heading\n\nThis is a paragraph with **bold** and *italic* text and a [link](https://example.com).\n\n![image](https://example.com/image.png)"
         node = markdown_to_html_node(markdown)
         to_html = node.to_html()
         self.assertEqual(
