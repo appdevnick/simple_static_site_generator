@@ -2,8 +2,11 @@ import unittest
 from pprint import pprint
 from utils import (block_to_block_type, markdown_to_blocks, extract_markdown_images,
                   extract_markdown_links, markdown_to_html_node, split_nodes_link,
-                  split_nodes_image, text_to_textnodes, BlockType)
+                  split_nodes_image, text_to_textnodes, BlockType, copy_from_to_dir)
 from textnode import TextNode, TextType
+import os
+import shutil
+import tempfile
 
 
 class TestTextNode(unittest.TestCase):
@@ -375,5 +378,95 @@ This is a **bold** and *italic* text with some `code`.
         # Ensure no raw TextType representations are in the output
         self.assertNotIn("TextType.", html_string)
 
-if __name__ == "__main__":
+class TestCopyFromToDir(unittest.TestCase):
+    def setUp(self):
+        # Create a temporary directory for testing
+        self.test_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        # Clean up temporary directories
+        shutil.rmtree(self.test_dir)
+
+    def test_copy_directory_with_files(self):
+        # Create source directory with files
+        source_dir = os.path.join(self.test_dir, 'source')
+        dest_dir = os.path.join(self.test_dir, 'destination')
+        os.makedirs(source_dir)
+        
+        # Create some test files
+        with open(os.path.join(source_dir, 'file1.txt'), 'w') as f:
+            f.write('test content 1')
+        with open(os.path.join(source_dir, 'file2.txt'), 'w') as f:
+            f.write('test content 2')
+        
+        # Copy directory
+        copy_from_to_dir(source_dir, dest_dir)
+        
+        # Check destination directory contents
+        self.assertTrue(os.path.exists(dest_dir))
+        self.assertTrue(os.path.exists(os.path.join(dest_dir, 'file1.txt')))
+        self.assertTrue(os.path.exists(os.path.join(dest_dir, 'file2.txt')))
+        
+        # Check file contents
+        with open(os.path.join(dest_dir, 'file1.txt'), 'r') as f:
+            self.assertEqual(f.read(), 'test content 1')
+        with open(os.path.join(dest_dir, 'file2.txt'), 'r') as f:
+            self.assertEqual(f.read(), 'test content 2')
+
+    def test_copy_directory_with_subdirectories(self):
+        # Create source directory with subdirectories and files
+        source_dir = os.path.join(self.test_dir, 'source')
+        dest_dir = os.path.join(self.test_dir, 'destination')
+        os.makedirs(os.path.join(source_dir, 'subdir1'))
+        os.makedirs(os.path.join(source_dir, 'subdir2'))
+        
+        # Create files in main directory and subdirectories
+        with open(os.path.join(source_dir, 'main_file.txt'), 'w') as f:
+            f.write('main file content')
+        with open(os.path.join(source_dir, 'subdir1', 'sub_file1.txt'), 'w') as f:
+            f.write('subdir1 file content')
+        with open(os.path.join(source_dir, 'subdir2', 'sub_file2.txt'), 'w') as f:
+            f.write('subdir2 file content')
+        
+        # Copy directory
+        copy_from_to_dir(source_dir, dest_dir)
+        
+        # Check destination directory contents
+        self.assertTrue(os.path.exists(dest_dir))
+        self.assertTrue(os.path.exists(os.path.join(dest_dir, 'main_file.txt')))
+        self.assertTrue(os.path.exists(os.path.join(dest_dir, 'subdir1', 'sub_file1.txt')))
+        self.assertTrue(os.path.exists(os.path.join(dest_dir, 'subdir2', 'sub_file2.txt')))
+
+    def test_non_existent_source_directory(self):
+        # Try to copy a non-existent directory
+        non_existent_dir = os.path.join(self.test_dir, 'non_existent')
+        dest_dir = os.path.join(self.test_dir, 'destination')
+        
+        # Should raise a ValueError
+        with self.assertRaises(ValueError):
+            copy_from_to_dir(non_existent_dir, dest_dir)
+
+    def test_overwrite_existing_destination(self):
+        # Create source directory with files
+        source_dir = os.path.join(self.test_dir, 'source')
+        dest_dir = os.path.join(self.test_dir, 'destination')
+        os.makedirs(source_dir)
+        os.makedirs(dest_dir)
+        
+        # Create a file in destination to ensure it's overwritten
+        with open(os.path.join(dest_dir, 'existing_file.txt'), 'w') as f:
+            f.write('old content')
+        
+        # Create files in source
+        with open(os.path.join(source_dir, 'file1.txt'), 'w') as f:
+            f.write('new content')
+        
+        # Copy directory
+        copy_from_to_dir(source_dir, dest_dir)
+        
+        # Check destination directory contents
+        self.assertTrue(os.path.exists(os.path.join(dest_dir, 'file1.txt')))
+        self.assertFalse(os.path.exists(os.path.join(dest_dir, 'existing_file.txt')))
+
+if __name__ == '__main__':
     unittest.main()

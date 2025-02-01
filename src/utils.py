@@ -2,6 +2,8 @@ import re
 import textwrap
 from enum import Enum
 from typing import List
+import os
+import shutil
 
 from textnode import TextNode, TextType
 from htmlnode import HTMLNode
@@ -408,3 +410,27 @@ def markdown_to_html_node(markdown: str):
     
     # Wrap in a div
     return ParentNode("div", children)
+
+def copy_from_to_dir(source_dir: str, dest_dir: str) -> None:    
+    if not os.path.exists(source_dir):
+        raise ValueError(f"Source directory {source_dir} does not exist.")
+
+    if os.path.exists(dest_dir):
+        shutil.rmtree(dest_dir)
+
+    os.mkdir(dest_dir)
+
+    # List all entries in the source directory
+    for entry in os.listdir(source_dir):
+        # Full path of the source entry
+        src_path = os.path.join(source_dir, entry)
+        # Full path of the destination entry
+        dest_path = os.path.join(dest_dir, entry)
+
+        # If it's a file, copy the file
+        if os.path.isfile(src_path):
+            shutil.copy(src_path, dest_path)
+        
+        # If it's a directory, recursively copy the directory
+        elif os.path.isdir(src_path):
+            copy_from_to_dir(src_path, dest_path)
