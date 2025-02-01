@@ -178,6 +178,29 @@ def add_block(blocks: list, current_block: list) -> list:
         blocks.append('\n'.join(current_block))
     return []
 
+def process_empty_line(blocks: list, current_block: list, in_code_block: bool) -> list:
+    """Process an empty line, which typically indicates a block boundary unless in a code block."""
+    if current_block and not in_code_block:
+        return add_block(blocks, current_block)
+    return current_block
+
+def process_code_block_start(blocks: list, current_block: list, in_code_block: bool, line: str) -> tuple[list, bool]:
+    """Handle the start or end of a code block marked by ```."""
+    if not in_code_block and current_block:
+        current_block = add_block(blocks, current_block)
+    in_code_block = not in_code_block
+    current_block.append(line)
+    if not in_code_block:
+        current_block = add_block(blocks, current_block)
+    return current_block, in_code_block
+
+def process_regular_line(blocks: list, current_block: list, line: str) -> list:
+    """Process a regular line of text, checking for block type transitions."""
+    if current_block and should_split_block(line, current_block[-1]):
+        current_block = add_block(blocks, current_block)
+    current_block.append(line)
+    return current_block
+
 def markdown_to_blocks(markdown: str) -> list:
     """Split markdown content into logical blocks while preserving structure."""
     blocks = []
@@ -190,18 +213,12 @@ def markdown_to_blocks(markdown: str) -> list:
         
         # Empty line handling
         if not stripped:
-            if current_block and not in_code_block:
-                current_block = add_block(blocks, current_block)
+            current_block = process_empty_line(blocks, current_block, in_code_block)
             continue
         
         # Code block handling
         if is_code_marker(line):
-            if not in_code_block and current_block:
-                current_block = add_block(blocks, current_block)
-            in_code_block = not in_code_block
-            current_block.append(line)
-            if not in_code_block:
-                current_block = add_block(blocks, current_block)
+            current_block, in_code_block = process_code_block_start(blocks, current_block, in_code_block, line)
             continue
         
         # Inside code block
@@ -209,11 +226,8 @@ def markdown_to_blocks(markdown: str) -> list:
             current_block.append(line)
             continue
         
-        # Handle transitions between block types
-        if current_block and should_split_block(line, current_block[-1]):
-            current_block = add_block(blocks, current_block)
-        
-        current_block.append(line)
+        # Handle regular line with potential block transitions
+        current_block = process_regular_line(blocks, current_block, line)
     
     # Add any remaining block
     if current_block:
@@ -503,9 +517,3 @@ def generate_pages_recursive(dir_path_content: str, template_path: str, dest_dir
             
             # Generate the page
             generate_page(str(dir_entry), str(template_path), str(output_path))
-
-def main():
-    generate_pages_recursive('content', 'template.html', 'output')
-
-if __name__ == "__main__":
-    main()
