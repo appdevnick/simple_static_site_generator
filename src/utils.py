@@ -1,10 +1,21 @@
 import re
 import textwrap
+from enum import Enum
+from typing import List
+
 from textnode import TextNode, TextType
 from htmlnode import HTMLNode
 from leafnode import LeafNode
 from parentnode import ParentNode
-from typing import List
+
+class BlockType(Enum):
+    """Enum for different types of markdown blocks."""
+    HEADING = 'heading'
+    CODE = 'code'
+    QUOTE = 'quote'
+    UNORDERED_LIST = 'unordered_list'
+    ORDERED_LIST = 'ordered_list'
+    PARAGRAPH = 'paragraph'
 
 
 def split_nodes_delimiter(old_nodes: List, delimiter, text_type):
@@ -130,35 +141,59 @@ def text_to_textnodes(text):
     return nodes_list
 
 
-def markdown_to_blocks(markdown):
+def is_code_marker(line: str) -> bool:
+    """Check if a line is a code block marker (```)."""
+    return line.strip() == '```'
+
+def is_heading(line: str) -> bool:
+    """Check if a line is a markdown heading."""
+    return bool(re.match(r'^#{1,6} ', line.strip()))
+
+def is_list_item(line: str) -> bool:
+    """Check if a line is a list item."""
+    return bool(re.match(r'^[*-] ', line.strip()))
+
+def should_split_block(current_line: str, previous_line: str) -> bool:
+    """Determine if we should split into a new block based on current and previous lines."""
+    stripped_current = current_line.strip()
+    stripped_previous = previous_line.strip() if previous_line else ''
+    
+    return (
+        is_heading(stripped_current) or
+        is_code_marker(stripped_current) or
+        (is_list_item(stripped_current) and not is_list_item(stripped_previous))
+    )
+
+def add_block(blocks: list, current_block: list) -> list:
+    """Join and add the current block to blocks if non-empty."""
+    if current_block:
+        blocks.append('\n'.join(current_block))
+    return []
+
+def markdown_to_blocks(markdown: str) -> list:
+    """Split markdown content into logical blocks while preserving structure."""
     blocks = []
     current_block = []
     lines = markdown.split('\n')
     in_code_block = False
     
-    for i, line in enumerate(lines):
+    for line in lines:
         stripped = line.strip()
         
         # Empty line handling
         if not stripped:
             if current_block and not in_code_block:
-                blocks.append('\n'.join(current_block))
-                current_block = []
+                current_block = add_block(blocks, current_block)
             continue
         
         # Code block handling
-        if stripped == '```':
-            # If we're starting a code block, end the current block first
+        if is_code_marker(line):
             if not in_code_block and current_block:
-                blocks.append('\n'.join(current_block))
-                current_block = []
+                current_block = add_block(blocks, current_block)
             in_code_block = not in_code_block
             current_block.append(line)
-            # If we're ending a code block, add it to blocks
             if not in_code_block:
-                block = '\n'.join(current_block)
-                blocks.append(block)
-                current_block = []
+                current_block = add_block(blocks, current_block)
             continue
         
         # Inside code block
@@ -167,67 +202,107 @@ def markdown_to_blocks(markdown):
             continue
         
         # Handle transitions between block types
-        if current_block:
-            last_line = current_block[-1].strip()
-            # Start new block if:
-            # 1. Current line is heading
-            is_heading = re.match(r'^#{1,6} ', stripped)
-            # 2. Current line starts list and previous wasn't list
-            is_list = re.match(r'^[*-] ', stripped)
-            was_list = re.match(r'^[*-] ', last_line)
-            # 3. Current line is code block
-            is_code = stripped == '```'
-            
-            if (is_heading or is_code or 
-                (is_list and not was_list)):
-                blocks.append('\n'.join(current_block))
-                current_block = []
+        if current_block and should_split_block(line, current_block[-1]):
+            current_block = add_block(blocks, current_block)
         
         current_block.append(line)
     
+    # Add any remaining block
     if current_block:
-        blocks.append('\n'.join(current_block))
+        add_block(blocks, current_block)
     
-    blocks = [b.strip() for b in blocks if b.strip()]
-    return blocks
+    return [b.strip() for b in blocks if b.strip()]
 
 
-def block_to_block_type(markdown_block):
+def block_to_block_type(markdown_block: str) -> BlockType:
+    """Determine the type of a markdown block based on its content and structure.
+    
+    Args:
+        markdown_block: A string containing one or more lines of markdown text
+        
+    Returns:
+        str: The type of block, one of:
+            - 'heading': A markdown heading (# to ######)
+            - 'code': A code block wrapped in ```
+            - 'quote': A blockquote starting with >
+            - 'unordered_list': A list with - or * bullets
+            - 'ordered_list': A numbered list (1., 2., etc)
+            - 'paragraph': Any other type of text block
+    """
     lines = markdown_block.split('\n')
+    
+    # Check for heading (must be at start of first line)
     if re.match(r'^#{1,6} ', lines[0]):
-        return 'heading'
+        return BlockType.HEADING
+    
+    # Check for code block (must be wrapped in ```)
     if lines[0].strip() == '```' and lines[-1].strip() == '```':
-        return 'code'
+        return BlockType.CODE
+    
+    # Check for blockquote (all lines must start with >)
     if all(line.startswith('>') for line in lines):
-        return 'quote'
+        return BlockType.QUOTE
+    
+    # Check for unordered list (all lines must start with - or *)
     if all(re.match(r'^[*-] ', line) for line in lines):
-        return 'unordered_list'
+        return BlockType.UNORDERED_LIST
+    
+    # Check for ordered list (all lines must start with number.)
     if all(re.match(r'^\d+\. ', line) for line in lines):
-        return 'ordered_list'
-    return 'paragraph'
+        return BlockType.ORDERED_LIST
+    
+    # Default to paragraph if no other type matches
+    return BlockType.PARAGRAPH
 
 
-def head_level(heading):
-    # Count consecutive # at the start of the heading
+def head_level(heading: str) -> int:
+    """Extract the heading level from a markdown heading.
+    
+    Args:
+        heading: A string containing a markdown heading (e.g., '## Heading')
+        
+    Returns:
+        int: The level of the heading (1-6)
+    """
     match = re.match(r'^(#+)\s', heading.strip())
     return len(match.group(1)) if match else 0
 
-def text_to_children(text_block, block_type):
+def text_to_children(text_block: str, block_type: BlockType) -> List[str]:
+    """Convert a text block into a list of child text elements based on block type.
+    
+    Args:
+        text_block: The text content to process
+        block_type: The type of block being processed
+        
+    Returns:
+        List[str]: List of processed text items
+        
+    Raises:
+        ValueError: If block_type is not supported
+    """
     match block_type:
-        case "ul":
+        case BlockType.UNORDERED_LIST:
             # Remove list markers and leading/trailing whitespace
             return [re.sub(r'^[*-]\s*', '', line).strip() for line in text_block.split("\n")]
-        case "ol":
+        case BlockType.ORDERED_LIST:
             # Remove list markers and leading/trailing whitespace
             return [re.sub(r'^\d+\.\s*', '', line).strip() for line in text_block.split("\n")]
         case _:
             raise ValueError(f"Unsupported block type: {block_type}")
 
-def block_to_html_node(block):
+def block_to_html_node(block: str) -> HTMLNode:
+    """Convert a markdown block to its corresponding HTML node.
+    
+    Args:
+        block: A string containing a markdown block
+        
+    Returns:
+        HTMLNode: Either a LeafNode or ParentNode representing the HTML structure
+    """
     block_type = block_to_block_type(block)
     
     match block_type:
-        case "heading":
+        case BlockType.HEADING:
             level = head_level(block)
             lines = block.split('\n')
             heading_line = lines[0]
@@ -236,7 +311,7 @@ def block_to_html_node(block):
             html_children = [node.text_node_to_html_node() for node in children]
             return ParentNode(f"h{level}", html_children)
         
-        case "code":
+        case BlockType.CODE:
             lines = block.split('\n')
             
             # Remove ``` markers
@@ -266,7 +341,7 @@ def block_to_html_node(block):
             code_text = '\n'.join(code_lines)
             return LeafNode("code", code_text, None, None)
         
-        case "unordered_list":
+        case BlockType.UNORDERED_LIST:
             lines = block.split('\n')
             list_items = []
             for line in lines:
@@ -279,7 +354,7 @@ def block_to_html_node(block):
                 list_items.append(ParentNode("li", html_children))
             return ParentNode("ul", list_items)
         
-        case "ordered_list":
+        case BlockType.ORDERED_LIST:
             lines = block.split('\n')
             list_items = []
             for line in lines:
@@ -292,7 +367,7 @@ def block_to_html_node(block):
                 list_items.append(ParentNode("li", html_children))
             return ParentNode("ol", list_items)
         
-        case "quote":
+        case BlockType.QUOTE:
             lines = block.split('\n')
             quote_text = '\n'.join(line.lstrip('> ').strip() for line in lines)
             children = text_to_textnodes(quote_text)
