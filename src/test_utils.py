@@ -1,12 +1,12 @@
 import unittest
-from pprint import pprint
+import tempfile
+import shutil
+from pathlib import Path
 from utils import (block_to_block_type, markdown_to_blocks, extract_markdown_images,
                   extract_markdown_links, markdown_to_html_node, split_nodes_link,
-                  split_nodes_image, text_to_textnodes, BlockType, copy_from_to_dir, extract_title, generate_page, generate_pages_recursive)
+                  split_nodes_image, text_to_textnodes, BlockType, copy_from_to_dir, 
+                  extract_title, generate_page, generate_pages_recursive)
 from textnode import TextNode, TextType
-import os
-import shutil
-import tempfile
 
 
 class TestTextNode(unittest.TestCase):
@@ -386,7 +386,7 @@ This is a **bold** and *italic* text with some `code`.
 class TestCopyFromToDir(unittest.TestCase):
     def setUp(self):
         # Create a temporary directory for testing
-        self.test_dir = tempfile.mkdtemp()
+        self.test_dir = Path(tempfile.mkdtemp())
 
     def tearDown(self):
         # Clean up temporary directories
@@ -394,58 +394,58 @@ class TestCopyFromToDir(unittest.TestCase):
 
     def test_copy_directory_with_files(self):
         # Create source directory with files
-        source_dir = os.path.join(self.test_dir, 'source')
-        dest_dir = os.path.join(self.test_dir, 'destination')
-        os.makedirs(source_dir)
+        source_dir = self.test_dir / 'source'
+        dest_dir = self.test_dir / 'destination'
+        source_dir.mkdir()
         
         # Create some test files
-        with open(os.path.join(source_dir, 'file1.txt'), 'w') as f:
+        with open(source_dir / 'file1.txt', 'w') as f:
             f.write('test content 1')
-        with open(os.path.join(source_dir, 'file2.txt'), 'w') as f:
+        with open(source_dir / 'file2.txt', 'w') as f:
             f.write('test content 2')
         
         # Copy directory
         copy_from_to_dir(source_dir, dest_dir)
         
         # Check destination directory contents
-        self.assertTrue(os.path.exists(dest_dir))
-        self.assertTrue(os.path.exists(os.path.join(dest_dir, 'file1.txt')))
-        self.assertTrue(os.path.exists(os.path.join(dest_dir, 'file2.txt')))
+        self.assertTrue(dest_dir.exists())
+        self.assertTrue((dest_dir / 'file1.txt').exists())
+        self.assertTrue((dest_dir / 'file2.txt').exists())
         
         # Check file contents
-        with open(os.path.join(dest_dir, 'file1.txt'), 'r') as f:
+        with open(dest_dir / 'file1.txt', 'r') as f:
             self.assertEqual(f.read(), 'test content 1')
-        with open(os.path.join(dest_dir, 'file2.txt'), 'r') as f:
+        with open(dest_dir / 'file2.txt', 'r') as f:
             self.assertEqual(f.read(), 'test content 2')
 
     def test_copy_directory_with_subdirectories(self):
         # Create source directory with subdirectories and files
-        source_dir = os.path.join(self.test_dir, 'source')
-        dest_dir = os.path.join(self.test_dir, 'destination')
-        os.makedirs(os.path.join(source_dir, 'subdir1'))
-        os.makedirs(os.path.join(source_dir, 'subdir2'))
+        source_dir = self.test_dir / 'source'
+        dest_dir = self.test_dir / 'destination'
+        (source_dir / 'subdir1').mkdir(parents=True)
+        (source_dir / 'subdir2').mkdir(parents=True)
         
         # Create files in main directory and subdirectories
-        with open(os.path.join(source_dir, 'main_file.txt'), 'w') as f:
+        with open(source_dir / 'main_file.txt', 'w') as f:
             f.write('main file content')
-        with open(os.path.join(source_dir, 'subdir1', 'sub_file1.txt'), 'w') as f:
+        with open((source_dir / 'subdir1') / 'sub_file1.txt', 'w') as f:
             f.write('subdir1 file content')
-        with open(os.path.join(source_dir, 'subdir2', 'sub_file2.txt'), 'w') as f:
+        with open((source_dir / 'subdir2') / 'sub_file2.txt', 'w') as f:
             f.write('subdir2 file content')
         
         # Copy directory
         copy_from_to_dir(source_dir, dest_dir)
         
         # Check destination directory contents
-        self.assertTrue(os.path.exists(dest_dir))
-        self.assertTrue(os.path.exists(os.path.join(dest_dir, 'main_file.txt')))
-        self.assertTrue(os.path.exists(os.path.join(dest_dir, 'subdir1', 'sub_file1.txt')))
-        self.assertTrue(os.path.exists(os.path.join(dest_dir, 'subdir2', 'sub_file2.txt')))
+        self.assertTrue(dest_dir.exists())
+        self.assertTrue((dest_dir / 'main_file.txt').exists())
+        self.assertTrue((dest_dir / 'subdir1' / 'sub_file1.txt').exists())
+        self.assertTrue((dest_dir / 'subdir2' / 'sub_file2.txt').exists())
 
     def test_non_existent_source_directory(self):
         # Try to copy a non-existent directory
-        non_existent_dir = os.path.join(self.test_dir, 'non_existent')
-        dest_dir = os.path.join(self.test_dir, 'destination')
+        non_existent_dir = self.test_dir / 'non_existent'
+        dest_dir = self.test_dir / 'destination'
         
         # Should raise a ValueError
         with self.assertRaises(ValueError):
@@ -453,39 +453,39 @@ class TestCopyFromToDir(unittest.TestCase):
 
     def test_overwrite_existing_destination(self):
         # Create source directory with files
-        source_dir = os.path.join(self.test_dir, 'source')
-        dest_dir = os.path.join(self.test_dir, 'destination')
-        os.makedirs(source_dir)
-        os.makedirs(dest_dir)
+        source_dir = self.test_dir / 'source'
+        dest_dir = self.test_dir / 'destination'
+        source_dir.mkdir()
+        dest_dir.mkdir()
         
         # Create a file in destination to ensure it's overwritten
-        with open(os.path.join(dest_dir, 'existing_file.txt'), 'w') as f:
+        with open(dest_dir / 'existing_file.txt', 'w') as f:
             f.write('old content')
         
         # Create files in source
-        with open(os.path.join(source_dir, 'file1.txt'), 'w') as f:
+        with open(source_dir / 'file1.txt', 'w') as f:
             f.write('new content')
         
         # Copy directory
         copy_from_to_dir(source_dir, dest_dir)
         
         # Check destination directory contents
-        self.assertTrue(os.path.exists(os.path.join(dest_dir, 'file1.txt')))
-        self.assertFalse(os.path.exists(os.path.join(dest_dir, 'existing_file.txt')))
+        self.assertTrue((dest_dir / 'file1.txt').exists())
+        self.assertFalse((dest_dir / 'existing_file.txt').exists())
 
 class TestGeneratePage(unittest.TestCase):
     def setUp(self):
         # Create a temporary directory
-        self.test_dir = tempfile.mkdtemp()
+        self.test_dir = Path(tempfile.mkdtemp())
         
         # Create a sample markdown file
-        self.markdown_path = os.path.join(self.test_dir, 'sample.md')
+        self.markdown_path = self.test_dir / 'sample.md'
         with open(self.markdown_path, 'w') as f:
             f.write('''# Test Title
 This is some test content.''')
         
         # Create a sample template file
-        self.template_path = os.path.join(self.test_dir, 'template.html')
+        self.template_path = self.test_dir / 'template.html'
         with open(self.template_path, 'w') as f:
             f.write("""<!DOCTYPE html>
 <html>
@@ -506,11 +506,11 @@ This is some test content.''')
 </html>""")
         
         # Create the public directory for output
-        self.public_dir = os.path.join(self.test_dir, 'public')
-        os.makedirs(self.public_dir, exist_ok=True)
+        self.public_dir = self.test_dir / 'public'
+        self.public_dir.mkdir(exist_ok=True)
         
         # Destination path for the generated HTML
-        self.dest_path = os.path.join(self.public_dir, 'output.html')
+        self.dest_path = self.public_dir / 'output.html'
 
     def tearDown(self):
         # Clean up the temporary directory
@@ -521,7 +521,7 @@ This is some test content.''')
         generate_page(self.markdown_path, self.template_path, self.dest_path)
         
         # Verify the generated HTML
-        self.assertTrue(os.path.exists(self.dest_path), "Output file was not created")
+        self.assertTrue(self.dest_path.exists(), "Output file was not created")
         
         with open(self.dest_path, 'r') as f:
             generated_html = f.read()
@@ -533,25 +533,25 @@ This is some test content.''')
 
     def test_generate_pages_recursive(self):
         # Create a temporary content directory
-        content_dir = tempfile.mkdtemp()
-        output_dir = tempfile.mkdtemp()
-        template_path = os.path.join(os.path.dirname(__file__), '..', 'template.html')
+        content_dir = Path(tempfile.mkdtemp())
+        output_dir = Path(tempfile.mkdtemp())
+        template_path = Path(__file__).parent / '..' / 'template.html'
 
         # Create test markdown files
-        os.makedirs(os.path.join(content_dir, 'subdir'), exist_ok=True)
+        (content_dir / 'subdir').mkdir(parents=True)
         
-        with open(os.path.join(content_dir, 'index.md'), 'w') as f:
+        with open(content_dir / 'index.md', 'w') as f:
             f.write('# Test Page\n\nThis is a test.')
         
-        with open(os.path.join(content_dir, 'subdir', 'post.md'), 'w') as f:
+        with open((content_dir / 'subdir') / 'post.md', 'w') as f:
             f.write('# Subdir Post\n\nThis is a subdir post.')
 
         # Call the function
         generate_pages_recursive(content_dir, template_path, output_dir)
 
         # Check output files exist
-        self.assertTrue(os.path.exists(os.path.join(output_dir, 'index.html')))
-        self.assertTrue(os.path.exists(os.path.join(output_dir, 'subdir', 'post.html')))
+        self.assertTrue((output_dir / 'index.html').exists())
+        self.assertTrue((output_dir / 'subdir' / 'post.html').exists())
 
         # Clean up
         shutil.rmtree(content_dir)

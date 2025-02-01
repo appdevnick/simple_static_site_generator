@@ -1,10 +1,10 @@
+import os
 import re
-import textwrap
+import shutil
+from pathlib import Path
 from enum import Enum
 from typing import List
-import os
-import shutil
-
+import textwrap
 from textnode import TextNode, TextType
 from htmlnode import HTMLNode
 from leafnode import LeafNode
@@ -417,29 +417,37 @@ def markdown_to_html_node(markdown: str):
     # Wrap in a div
     return ParentNode("div", children)
 
-def copy_from_to_dir(source_dir: str, dest_dir: str) -> None:    
-    if not os.path.exists(source_dir):
+def copy_from_to_dir(source_dir: str, dest_dir: str):
+    """
+    Copy files and directories from source to destination.
+    
+    Args:
+        source_dir (str): Source directory path
+        dest_dir (str): Destination directory path
+    """
+    source_path = Path(source_dir)
+    dest_path = Path(dest_dir)
+
+    # Check if source directory exists
+    if not source_path.exists():
         raise ValueError(f"Source directory {source_dir} does not exist.")
 
-    if os.path.exists(dest_dir):
-        shutil.rmtree(dest_dir)
+    # Ensure destination directory exists, recreate if it does
+    if dest_path.exists():
+        shutil.rmtree(dest_path)
+    dest_path.mkdir(parents=True)
 
-    os.mkdir(dest_dir)
-
-    # List all entries in the source directory
-    for entry in os.listdir(source_dir):
-        # Full path of the source entry
-        src_path = os.path.join(source_dir, entry)
-        # Full path of the destination entry
-        dest_path = os.path.join(dest_dir, entry)
-
-        # If it's a file, copy the file
-        if os.path.isfile(src_path):
-            shutil.copy(src_path, dest_path)
+    # Iterate through all files and directories in source
+    for item in source_path.iterdir():
+        dest_item = dest_path / item.name
         
-        # If it's a directory, recursively copy the directory
-        elif os.path.isdir(src_path):
-            copy_from_to_dir(src_path, dest_path)
+        if item.is_dir():
+            # Recursively copy subdirectories
+            dest_item.mkdir(exist_ok=True)
+            copy_from_to_dir(str(item), str(dest_item))
+        else:
+            # Copy individual files
+            shutil.copy2(str(item), str(dest_item))
 
 def extract_title(markdown: str) -> str:
     for line in markdown.split("\n"):
@@ -450,7 +458,13 @@ def extract_title(markdown: str) -> str:
     raise Exception("No h1 header found in document")
 
 def generate_page(from_path: str, template_path: str, dest_path: str):
-    with open(from_path, 'r') as from_file, open(template_path, 'r') as template_file, open(dest_path, 'w') as output_file:
+    from_path = Path(from_path)
+    template_path = Path(template_path)
+    dest_path = Path(dest_path)
+
+    with from_path.open('r') as from_file, \
+         template_path.open('r') as template_file, \
+         dest_path.open('w') as output_file:
         template = template_file.read()
         source_markdown = from_file.read()
         html_version = markdown_to_html_node(source_markdown)
@@ -467,5 +481,31 @@ def generate_pages_recursive(dir_path_content: str, template_path: str, dest_dir
         template_path (str): Path to the HTML template file
         dest_dir_path (str): Destination directory for generated HTML files
     """
-    for dir_entry in os.listdir(dir_path_content):
-        print(f"DIR PATH CONTENT: {dir_entry}")
+    content_path = Path(dir_path_content)
+    dest_path = Path(dest_dir_path)
+    template_path = Path(template_path)
+
+    # Ensure destination directory exists
+    dest_path.mkdir(parents=True, exist_ok=True)
+
+    for dir_entry in content_path.iterdir():
+        if dir_entry.is_dir():
+            # Recursively process subdirectories
+            subdir_dest = dest_path / dir_entry.name
+            generate_pages_recursive(str(dir_entry), str(template_path), str(subdir_dest))
+        elif dir_entry.suffix == '.md':
+            # Generate HTML for markdown files
+            relative_path = dir_entry.relative_to(content_path)
+            output_path = dest_path / relative_path.with_suffix('.html')
+            
+            # Create parent directories if they don't exist
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Generate the page
+            generate_page(str(dir_entry), str(template_path), str(output_path))
+
+def main():
+    generate_pages_recursive('content', 'template.html', 'output')
+
+if __name__ == "__main__":
+    main()
