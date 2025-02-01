@@ -457,3 +457,15 @@ def generate_page(from_path: str, template_path: str, dest_path: str):
         title = extract_title(source_markdown)
         new_document = re.sub(r'<title>.*?</title>', f'<title>{title}</title>', template).replace("{{ Content }}", html_version.to_html())
         output_file.write(new_document)
+
+def generate_pages_recursive(dir_path_content: str, template_path: str, dest_dir_path: str):
+    """
+    Recursively generate HTML pages from markdown files.
+    
+    Args:
+        dir_path_content (str): Path to the content directory containing markdown files
+        template_path (str): Path to the HTML template file
+        dest_dir_path (str): Destination directory for generated HTML files
+    """
+    for dir_entry in os.listdir(dir_path_content):
+        print(f"DIR PATH CONTENT: {dir_entry}")

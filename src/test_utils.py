@@ -2,7 +2,7 @@ import unittest
 from pprint import pprint
 from utils import (block_to_block_type, markdown_to_blocks, extract_markdown_images,
                   extract_markdown_links, markdown_to_html_node, split_nodes_link,
-                  split_nodes_image, text_to_textnodes, BlockType, copy_from_to_dir, extract_title, generate_page)
+                  split_nodes_image, text_to_textnodes, BlockType, copy_from_to_dir, extract_title, generate_page, generate_pages_recursive)
 from textnode import TextNode, TextType
 import os
 import shutil
@@ -479,46 +479,83 @@ class TestGeneratePage(unittest.TestCase):
         self.test_dir = tempfile.mkdtemp()
         
         # Create a sample markdown file
-        self.markdown_path = os.path.join(self.test_dir, 'test_page.md')
+        self.markdown_path = os.path.join(self.test_dir, 'sample.md')
         with open(self.markdown_path, 'w') as f:
-            f.write('# Test Page\n\nThis is a test markdown page.')
+            f.write('''# Test Title
+This is some test content.''')
         
         # Create a sample template file
         self.template_path = os.path.join(self.test_dir, 'template.html')
         with open(self.template_path, 'w') as f:
-            f.write('<!DOCTYPE html>\n<html>\n<body>\n{{content}}\n</body>\n</html>')
+            f.write("""<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title> {{ Title }} </title>
+    <link href="/index.css" rel="stylesheet">
+</head>
+
+<body>
+    <div>
+        {{ Content }}
+    </div>
+</body>
+
+</html>""")
         
         # Create the public directory for output
         self.public_dir = os.path.join(self.test_dir, 'public')
         os.makedirs(self.public_dir, exist_ok=True)
         
         # Destination path for the generated HTML
-        self.dest_path = os.path.join(self.public_dir, 'test_page.html')
+        self.dest_path = os.path.join(self.public_dir, 'output.html')
 
     def tearDown(self):
         # Clean up the temporary directory
         shutil.rmtree(self.test_dir)
 
     def test_generate_page(self):
-        # Call the generate_page function
+        # Generate the page
         generate_page(self.markdown_path, self.template_path, self.dest_path)
         
-        # Check if the destination file was created
-        self.assertTrue(os.path.exists(self.dest_path))
+        # Verify the generated HTML
+        self.assertTrue(os.path.exists(self.dest_path), "Output file was not created")
         
-        # Read the generated HTML file
         with open(self.dest_path, 'r') as f:
             generated_html = f.read()
         
-        # Check if the generated HTML contains expected content
-        self.assertIn('<h1>Test Page</h1>', generated_html)
-        self.assertIn('<p>This is a test markdown page.</p>', generated_html)
-        self.assertTrue(generated_html.startswith('<!DOCTYPE html>'))
-        self.assertTrue(generated_html.endswith('</html>'))
+        # Check for new template structure
+        self.assertIn('<title>Test Title</title>', generated_html, "Title tag was not replaced correctly")
+        self.assertIn('<h1>Test Title</h1>', generated_html, "Title was not inserted correctly")
+        self.assertNotIn('{{ Content }}', generated_html, "Content tag placeholder was not removed")
+
+    def test_generate_pages_recursive(self):
+        # Create a temporary content directory
+        content_dir = tempfile.mkdtemp()
+        output_dir = tempfile.mkdtemp()
+        template_path = os.path.join(os.path.dirname(__file__), '..', 'template.html')
+
+        # Create test markdown files
+        os.makedirs(os.path.join(content_dir, 'subdir'), exist_ok=True)
         
-        # Explicitly check for template tag replacements
-        self.assertNotIn('{{ Title }}', generated_html, "Title tag was not replaced")
-        self.assertNotIn('{{ Content }}', generated_html, "Content tag was not replaced")
+        with open(os.path.join(content_dir, 'index.md'), 'w') as f:
+            f.write('# Test Page\n\nThis is a test.')
+        
+        with open(os.path.join(content_dir, 'subdir', 'post.md'), 'w') as f:
+            f.write('# Subdir Post\n\nThis is a subdir post.')
+
+        # Call the function
+        generate_pages_recursive(content_dir, template_path, output_dir)
+
+        # Check output files exist
+        self.assertTrue(os.path.exists(os.path.join(output_dir, 'index.html')))
+        self.assertTrue(os.path.exists(os.path.join(output_dir, 'subdir', 'post.html')))
+
+        # Clean up
+        shutil.rmtree(content_dir)
+        shutil.rmtree(output_dir)
 
 if __name__ == '__main__':
     unittest.main()
