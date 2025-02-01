@@ -442,3 +442,7 @@ def extract_title(markdown: str) -> str:
             return matches[1].strip()
         
     raise Exception("No h1 header found in document")
+
+def generate_page(from_path: str, template_path: str, dest_path: str):
+    print(f"Generating page from {from_path} to {dest_path} using {template_path}")
+    

@@ -2,7 +2,7 @@ import unittest
 from pprint import pprint
 from utils import (block_to_block_type, markdown_to_blocks, extract_markdown_images,
                   extract_markdown_links, markdown_to_html_node, split_nodes_link,
-                  split_nodes_image, text_to_textnodes, BlockType, copy_from_to_dir, extract_title)
+                  split_nodes_image, text_to_textnodes, BlockType, copy_from_to_dir, extract_title, generate_page)
 from textnode import TextNode, TextType
 import os
 import shutil
@@ -472,6 +472,53 @@ class TestCopyFromToDir(unittest.TestCase):
         # Check destination directory contents
         self.assertTrue(os.path.exists(os.path.join(dest_dir, 'file1.txt')))
         self.assertFalse(os.path.exists(os.path.join(dest_dir, 'existing_file.txt')))
+
+class TestGeneratePage(unittest.TestCase):
+    def setUp(self):
+        # Create a temporary directory
+        self.test_dir = tempfile.mkdtemp()
+        
+        # Create a sample markdown file
+        self.markdown_path = os.path.join(self.test_dir, 'test_page.md')
+        with open(self.markdown_path, 'w') as f:
+            f.write('# Test Page\n\nThis is a test markdown page.')
+        
+        # Create a sample template file
+        self.template_path = os.path.join(self.test_dir, 'template.html')
+        with open(self.template_path, 'w') as f:
+            f.write('<!DOCTYPE html>\n<html>\n<body>\n{{content}}\n</body>\n</html>')
+        
+        # Create the public directory for output
+        self.public_dir = os.path.join(self.test_dir, 'public')
+        os.makedirs(self.public_dir, exist_ok=True)
+        
+        # Destination path for the generated HTML
+        self.dest_path = os.path.join(self.public_dir, 'test_page.html')
+
+    def tearDown(self):
+        # Clean up the temporary directory
+        shutil.rmtree(self.test_dir)
+
+    def test_generate_page(self):
+        # Call the generate_page function
+        generate_page(self.markdown_path, self.template_path, self.dest_path)
+        
+        # Check if the destination file was created
+        self.assertTrue(os.path.exists(self.dest_path))
+        
+        # Read the generated HTML file
+        with open(self.dest_path, 'r') as f:
+            generated_html = f.read()
+        
+        # Check if the generated HTML contains expected content
+        self.assertIn('<h1>Test Page</h1>', generated_html)
+        self.assertIn('<p>This is a test markdown page.</p>', generated_html)
+        self.assertTrue(generated_html.startswith('<!DOCTYPE html>'))
+        self.assertTrue(generated_html.endswith('</html>'))
+        
+        # Explicitly check for template tag replacements
+        self.assertNotIn('{{ Title }}', generated_html, "Title tag was not replaced")
+        self.assertNotIn('{{ Content }}', generated_html, "Content tag was not replaced")
 
 if __name__ == '__main__':
     unittest.main()
