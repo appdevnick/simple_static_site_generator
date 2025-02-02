@@ -386,6 +386,106 @@ def text_to_children(text_block: str, block_type: BlockType) -> list[str]:
         case _:
             raise ValueError(f"Unsupported block type: {block_type}")
 
+def normalize_code_indentation(lines: list[str]) -> str:
+    """Normalize indentation in code block lines.
+    
+    Args:
+        lines: List of code lines
+        
+    Returns:
+        str: Code text with normalized indentation
+    """
+    # Find common indentation
+    indents = []
+    for line in lines:
+        if line.strip():  # Ignore empty lines
+            indent = len(line) - len(line.lstrip())
+            indents.append(indent)
+    
+    # Get minimum indent (if any)
+    min_indent = min(indents) if indents else 0
+    
+    # Remove common indentation and preserve the rest
+    code_lines = []
+    for line in lines:
+        if line.strip():  # Non-empty line
+            code_lines.append(line[min_indent:])
+        else:  # Empty line
+            code_lines.append('')
+    
+    return '\n'.join(code_lines)
+
+def convert_heading_block(block: str) -> HTMLNode:
+    """Convert a heading block to an HTML node."""
+    level = head_level(block)
+    lines = block.split('\n')
+    heading_line = lines[0]
+    text = re.sub(r'^#+\s*', '', heading_line).strip()
+    children = text_to_textnodes(text)
+    html_children = [node.text_node_to_html_node() for node in children]
+    return ParentNode(f"h{level}", html_children)
+
+def convert_code_block(block: str) -> HTMLNode:
+    """Convert a code block to an HTML node."""
+    lines = block.split('\n')
+    
+    # Remove ``` markers
+    if lines[0].startswith('```'):
+        lines = lines[1:]
+    if lines and lines[-1].strip() == '```':
+        lines = lines[:-1]
+    
+    code_text = normalize_code_indentation(lines)
+    return LeafNode("code", code_text, None, None)
+
+def convert_unordered_list(block: str) -> HTMLNode:
+    """Convert an unordered list block to an HTML node."""
+    lines = block.split('\n')
+    list_items = []
+    for line in lines:
+        if not line.strip():
+            continue
+        # Remove list marker and leading space
+        content = re.sub(r'^\s*[*-]\s*', '', line.strip())
+        text_nodes = text_to_textnodes(content)
+        html_children = [node.text_node_to_html_node() for node in text_nodes]
+        list_items.append(ParentNode("li", html_children))
+    return ParentNode("ul", list_items)
+
+def convert_ordered_list(block: str) -> HTMLNode:
+    """Convert an ordered list block to an HTML node."""
+    lines = block.split('\n')
+    list_items = []
+    for line in lines:
+        if not line.strip():
+            continue
+        # Remove number, period, and leading space
+        content = re.sub(r'^\s*\d+\.\s*', '', line.strip())
+        text_nodes = text_to_textnodes(content)
+        html_children = [node.text_node_to_html_node() for node in text_nodes]
+        list_items.append(ParentNode("li", html_children))
+    return ParentNode("ol", list_items)
+
+def convert_quote_block(block: str) -> HTMLNode:
+    """Convert a quote block to an HTML node."""
+    lines = block.split('\n')
+    quote_text = '\n'.join(line.lstrip('> ').strip() for line in lines)
+    children = text_to_textnodes(quote_text)
+    html_children = [node.text_node_to_html_node() for node in children]
+    return ParentNode("blockquote", html_children)
+
+def convert_paragraph_block(block: str) -> HTMLNode:
+    """Convert a paragraph block to an HTML node."""
+    children = text_to_textnodes(block)
+    html_children = []
+    for node in children:
+        html_node = node.text_node_to_html_node()
+        if isinstance(html_node, LeafNode) and html_node.tag == 'img':
+            # Don't wrap images in paragraphs
+            return html_node
+        html_children.append(html_node)
+    return ParentNode("p", html_children)
+
 def block_to_html_node(block: str) -> HTMLNode:
     """Convert a markdown block to its corresponding HTML node.
     
@@ -399,88 +499,17 @@ def block_to_html_node(block: str) -> HTMLNode:
     
     match block_type:
         case BlockType.HEADING:
-            level = head_level(block)
-            lines = block.split('\n')
-            heading_line = lines[0]
-            text = re.sub(r'^#+\s*', '', heading_line).strip()
-            children = text_to_textnodes(text)
-            html_children = [node.text_node_to_html_node() for node in children]
-            return ParentNode(f"h{level}", html_children)
-        
+            return convert_heading_block(block)
         case BlockType.CODE:
-            lines = block.split('\n')
-            
-            # Remove ``` markers
-            if lines[0].startswith('```'):
-                lines = lines[1:]
-            if lines and lines[-1].strip() == '```':
-                lines = lines[:-1]
-            
-            # Find common indentation
-            indents = []
-            for line in lines:
-                if line.strip():  # Ignore empty lines
-                    indent = len(line) - len(line.lstrip())
-                    indents.append(indent)
-            
-            # Get minimum indent (if any)
-            min_indent = min(indents) if indents else 0
-            
-            # Remove common indentation and preserve the rest
-            code_lines = []
-            for line in lines:
-                if line.strip():  # Non-empty line
-                    code_lines.append(line[min_indent:])
-                else:  # Empty line
-                    code_lines.append('')
-            
-            code_text = '\n'.join(code_lines)
-            return LeafNode("code", code_text, None, None)
-        
+            return convert_code_block(block)
         case BlockType.UNORDERED_LIST:
-            lines = block.split('\n')
-            list_items = []
-            for line in lines:
-                if not line.strip():
-                    continue
-                # Remove list marker and leading space
-                content = re.sub(r'^\s*[*-]\s*', '', line.strip())
-                text_nodes = text_to_textnodes(content)
-                html_children = [node.text_node_to_html_node() for node in text_nodes]
-                list_items.append(ParentNode("li", html_children))
-            return ParentNode("ul", list_items)
-        
+            return convert_unordered_list(block)
         case BlockType.ORDERED_LIST:
-            lines = block.split('\n')
-            list_items = []
-            for line in lines:
-                if not line.strip():
-                    continue
-                # Remove number, period, and leading space
-                content = re.sub(r'^\s*\d+\.\s*', '', line.strip())
-                text_nodes = text_to_textnodes(content)
-                html_children = [node.text_node_to_html_node() for node in text_nodes]
-                list_items.append(ParentNode("li", html_children))
-            return ParentNode("ol", list_items)
-        
+            return convert_ordered_list(block)
         case BlockType.QUOTE:
-            lines = block.split('\n')
-            quote_text = '\n'.join(line.lstrip('> ').strip() for line in lines)
-            children = text_to_textnodes(quote_text)
-            html_children = [node.text_node_to_html_node() for node in children]
-            return ParentNode("blockquote", html_children)
-        
+            return convert_quote_block(block)
         case BlockType.PARAGRAPH:
-            children = text_to_textnodes(block)
-            html_children = []
-            for node in children:
-                html_node = node.text_node_to_html_node()
-                if isinstance(html_node, LeafNode) and html_node.tag == 'img':
-                    # Don't wrap images in paragraphs
-                    return html_node
-                html_children.append(html_node)
-            return ParentNode("p", html_children)
-        
+            return convert_paragraph_block(block)
         case _:
             raise ValueError(f"Unsupported block type: {block_type}")
 
