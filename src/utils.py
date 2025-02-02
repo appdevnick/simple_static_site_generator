@@ -3,6 +3,7 @@ import re
 import shutil
 from pathlib import Path
 from enum import Enum
+from typing import Callable
 from typing import List
 import textwrap
 from textnode import TextNode, TextType
@@ -235,7 +236,6 @@ def markdown_to_blocks(markdown: str) -> list:
     
     return [b.strip() for b in blocks if b.strip()]
 
-
 def is_empty_block(block: str) -> bool:
     """Check if block is empty or whitespace only."""
     return not block.strip()
@@ -320,7 +320,52 @@ def head_level(heading: str) -> int:
     match = re.match(r'^(#+)\s', heading.strip())
     return len(match.group(1)) if match else 0
 
-def text_to_children(text_block: str, block_type: BlockType) -> List[str]:
+def clean_unordered_list_item(line: str) -> str:
+    """Remove - or * markers and clean whitespace from a list item.
+    
+    Args:
+        line: A line from an unordered list (e.g., '- Item 1' or '* Item 1')
+        
+    Returns:
+        str: Cleaned line with markers and extra whitespace removed
+    """
+    return re.sub(r'^[*-]\s*', '', line).strip()
+
+def clean_ordered_list_item(line: str) -> str:
+    """Remove number markers and clean whitespace from a list item.
+    
+    Args:
+        line: A line from an ordered list (e.g., '1. Item 1')
+        
+    Returns:
+        str: Cleaned line with number marker and extra whitespace removed
+    """
+    return re.sub(r'^\d+\.\s*', '', line).strip()
+
+def split_into_lines(text: str) -> list[str]:
+    """Split text into lines, handling different line endings.
+    
+    Args:
+        text: Text block to split into lines
+        
+    Returns:
+        list[str]: List of non-empty lines
+    """
+    return [line for line in text.split('\n') if line]
+
+def process_list_block(text: str, clean_item_func: Callable[[str], str]) -> list[str]:
+    """Process a list block using the provided cleaning function.
+    
+    Args:
+        text: The list block text to process
+        clean_item_func: Function to clean each list item
+        
+    Returns:
+        list[str]: List of cleaned items
+    """
+    return [clean_item_func(line) for line in split_into_lines(text)]
+
+def text_to_children(text_block: str, block_type: BlockType) -> list[str]:
     """Convert a text block into a list of child text elements based on block type.
     
     Args:
@@ -328,18 +373,16 @@ def text_to_children(text_block: str, block_type: BlockType) -> List[str]:
         block_type: The type of block being processed
         
     Returns:
-        List[str]: List of processed text items
+        list[str]: List of processed text items
         
     Raises:
         ValueError: If block_type is not supported
     """
     match block_type:
         case BlockType.UNORDERED_LIST:
-            # Remove list markers and leading/trailing whitespace
-            return [re.sub(r'^[*-]\s*', '', line).strip() for line in text_block.split("\n")]
+            return process_list_block(text_block, clean_unordered_list_item)
         case BlockType.ORDERED_LIST:
-            # Remove list markers and leading/trailing whitespace
-            return [re.sub(r'^\d+\.\s*', '', line).strip() for line in text_block.split("\n")]
+            return process_list_block(text_block, clean_ordered_list_item)
         case _:
             raise ValueError(f"Unsupported block type: {block_type}")
 
