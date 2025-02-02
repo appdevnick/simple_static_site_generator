@@ -236,6 +236,36 @@ def markdown_to_blocks(markdown: str) -> list:
     return [b.strip() for b in blocks if b.strip()]
 
 
+def is_empty_block(block: str) -> bool:
+    """Check if block is empty or whitespace only."""
+    return not block.strip()
+
+def is_heading_block(block: str) -> bool:
+    """Check if block starts with 1-6 # characters followed by space."""
+    return bool(re.match(r'^#{1,6} ', block.lstrip()))
+
+def is_code_block(block: str) -> bool:
+    """Check if block is wrapped in ``` markers."""
+    stripped = block.strip()
+    lines = stripped.split('\n')
+    return len(lines) >= 2 and stripped.startswith('```') and stripped.endswith('```')
+
+def get_non_empty_lines(block: str) -> list[str]:
+    """Get list of non-empty lines from block."""
+    return [line.strip() for line in block.split('\n') if line.strip()]
+
+def is_quote_block(lines: list[str]) -> bool:
+    """Check if all non-empty lines start with >."""
+    return all(line.startswith('>') for line in lines)
+
+def is_unordered_list_block(lines: list[str]) -> bool:
+    """Check if all non-empty lines start with - or *."""
+    return all(re.match(r'^[*-] ', line.strip()) for line in lines)
+
+def is_ordered_list_block(lines: list[str]) -> bool:
+    """Check if all non-empty lines start with a number followed by period."""
+    return all(re.match(r'^\d+\. ', line.strip()) for line in lines)
+
 def block_to_block_type(markdown_block: str) -> BlockType:
     """Determine the type of a markdown block based on its content and structure.
     
@@ -243,41 +273,38 @@ def block_to_block_type(markdown_block: str) -> BlockType:
         markdown_block: A string containing one or more lines of markdown text
         
     Returns:
-        str: The type of block, one of:
-            - 'heading': A markdown heading (# to ######)
-            - 'code': A code block wrapped in ```
-            - 'quote': A blockquote starting with >
-            - 'unordered_list': A list with - or * bullets
-            - 'ordered_list': A numbered list (1., 2., etc)
-            - 'paragraph': Any other type of text block
+        BlockType: The type of block (HEADING, CODE, QUOTE, etc.)
+        
+    The function checks for block types in this order:
+    1. Empty block → PARAGRAPH
+    2. Heading (# Text) → HEADING
+    3. Code block (wrapped in ```) → CODE
+    4. Quote (lines start with >) → QUOTE
+    5. Unordered list (- or *) → UNORDERED_LIST
+    6. Ordered list (1. 2. etc) → ORDERED_LIST
+    7. Default → PARAGRAPH
     """
-    # Handle empty blocks
-    if not markdown_block.strip():
+    if is_empty_block(markdown_block):
         return BlockType.PARAGRAPH
-    
-    # Check for heading (must be at start)
-    if re.match(r'^#{1,6} ', markdown_block.lstrip()):
+        
+    if is_heading_block(markdown_block):
         return BlockType.HEADING
-    
-    # Check for code block (must be wrapped in ```)
-    lines = markdown_block.strip().split('\n')
-    if len(lines) >= 2 and markdown_block.strip().startswith('```') and markdown_block.strip().endswith('```'):
+        
+    if is_code_block(markdown_block):
         return BlockType.CODE
+        
+    # Get non-empty lines once for all remaining checks
+    lines = get_non_empty_lines(markdown_block)
     
-    # Check for blockquote (all non-empty lines must start with >)
-    non_empty_lines = [line.strip() for line in lines if line.strip()]
-    if all(line.startswith('>') for line in non_empty_lines):
+    if is_quote_block(lines):
         return BlockType.QUOTE
-    
-    # Check for unordered list (all non-empty lines must start with - or *)
-    if all(re.match(r'^[*-] ', line.strip()) for line in non_empty_lines):
+        
+    if is_unordered_list_block(lines):
         return BlockType.UNORDERED_LIST
-    
-    # Check for ordered list (all non-empty lines must start with number.)
-    if all(re.match(r'^\d+\. ', line.strip()) for line in non_empty_lines):
+        
+    if is_ordered_list_block(lines):
         return BlockType.ORDERED_LIST
-    
-    # Default to paragraph if no other type matches
+        
     return BlockType.PARAGRAPH
 
 
