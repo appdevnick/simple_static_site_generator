@@ -152,7 +152,8 @@ def text_to_textnodes(text):
 
 def is_code_marker(line: str) -> bool:
     """Check if a line is a code block marker (```)."""
-    return line.strip() == '```'
+    stripped = line.strip()
+    return stripped == '```' or (stripped.startswith('```') and not stripped.startswith('````'))
 
 def is_heading(line: str) -> bool:
     """Check if a line is a markdown heading."""
@@ -160,18 +161,33 @@ def is_heading(line: str) -> bool:
 
 def is_list_item(line: str) -> bool:
     """Check if a line is a list item."""
-    return bool(re.match(r'^[*-] ', line.strip()))
+    stripped = line.strip()
+    return (bool(re.match(r'^[*-] ', stripped)) or
+            bool(re.match(r'^\d+\.\s', stripped)))
 
 def should_split_block(current_line: str, previous_line: str) -> bool:
     """Determine if we should split into a new block based on current and previous lines."""
     stripped_current = current_line.strip()
     stripped_previous = previous_line.strip() if previous_line else ''
     
-    return (
-        is_heading(stripped_current) or
-        is_code_marker(stripped_current) or
-        (is_list_item(stripped_current) and not is_list_item(stripped_previous))
-    )
+    # Check for block transitions
+    if is_heading(stripped_current) or is_code_marker(stripped_current):
+        return True
+        
+    # Check for list transitions
+    current_is_list = is_list_item(stripped_current)
+    previous_is_list = is_list_item(stripped_previous)
+    
+    if current_is_list != previous_is_list:
+        return True
+        
+    # Check for different list types
+    if current_is_list and previous_is_list:
+        current_ordered = bool(re.match(r'^\d+\.\s', stripped_current))
+        previous_ordered = bool(re.match(r'^\d+\.\s', stripped_previous))
+        return current_ordered != previous_ordered
+        
+    return False
 
 def add_block(blocks: list, current_block: list) -> list:
     """Join and add the current block to blocks if non-empty."""
@@ -329,7 +345,7 @@ def clean_unordered_list_item(line: str) -> str:
     Returns:
         str: Cleaned line with markers and extra whitespace removed
     """
-    return re.sub(r'^[*-]\s*', '', line).strip()
+    return re.sub(r'^\s*[*-]\s*', '', line.strip())
 
 def clean_ordered_list_item(line: str) -> str:
     """Remove number markers and clean whitespace from a list item.
@@ -340,7 +356,7 @@ def clean_ordered_list_item(line: str) -> str:
     Returns:
         str: Cleaned line with number marker and extra whitespace removed
     """
-    return re.sub(r'^\d+\.\s*', '', line).strip()
+    return re.sub(r'^\s*\d+\.\s*', '', line.strip())
 
 def split_into_lines(text: str) -> list[str]:
     """Split text into lines, handling different line endings.
@@ -351,7 +367,9 @@ def split_into_lines(text: str) -> list[str]:
     Returns:
         list[str]: List of non-empty lines
     """
-    return [line for line in text.split('\n') if line]
+    # Replace Windows line endings with Unix line endings
+    text = text.replace('\r\n', '\n').replace('\r', '\n')
+    return [line for line in text.split('\n')]
 
 def process_list_block(text: str, clean_item_func: Callable[[str], str]) -> list[str]:
     """Process a list block using the provided cleaning function.
@@ -378,13 +396,29 @@ def text_to_children(text_block: str, block_type: BlockType) -> list[str]:
     Raises:
         ValueError: If block_type is not supported
     """
-    match block_type:
-        case BlockType.UNORDERED_LIST:
-            return process_list_block(text_block, clean_unordered_list_item)
-        case BlockType.ORDERED_LIST:
-            return process_list_block(text_block, clean_ordered_list_item)
-        case _:
-            raise ValueError(f"Unsupported block type: {block_type}")
+    if block_type == BlockType.HEADING:
+        # Remove heading markers
+        return [re.sub(r'^#+\s*', '', text_block.strip())]
+    elif block_type == BlockType.CODE:
+        # Remove code markers and get content
+        lines = text_block.split('\n')
+        if lines[0].startswith('```'):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == '```':
+            lines = lines[:-1]
+        return ['\n'.join(lines)]
+    elif block_type == BlockType.QUOTE:
+        # Remove quote markers
+        lines = text_block.split('\n')
+        return ['\n'.join(line.lstrip('> ').strip() for line in lines)]
+    elif block_type == BlockType.UNORDERED_LIST:
+        return process_list_block(text_block, clean_unordered_list_item)
+    elif block_type == BlockType.ORDERED_LIST:
+        return process_list_block(text_block, clean_ordered_list_item)
+    elif block_type == BlockType.PARAGRAPH:
+        return [text_block.strip()]
+    
+    raise ValueError(f"Unsupported block type: {block_type}")
 
 def normalize_code_indentation(lines: list[str]) -> str:
     """Normalize indentation in code block lines.
@@ -478,12 +512,24 @@ def convert_paragraph_block(block: str) -> HTMLNode:
     """Convert a paragraph block to an HTML node."""
     children = text_to_textnodes(block)
     html_children = []
+    has_image = False
+    image_node = None
+    
+    # First pass: collect nodes and check for image
     for node in children:
         html_node = node.text_node_to_html_node()
         if isinstance(html_node, LeafNode) and html_node.tag == 'img':
-            # Don't wrap images in paragraphs
-            return html_node
+            has_image = True
+            image_node = html_node
         html_children.append(html_node)
+    
+    # If there's exactly one image node and any other nodes are just empty text
+    if has_image and all((
+        isinstance(node, LeafNode) and 
+        (node.tag == 'img' or (node.tag is None and not node.value.strip()))
+    ) for node in html_children):
+        return image_node
+    
     return ParentNode("p", html_children)
 
 def block_to_html_node(block: str) -> HTMLNode:
@@ -537,17 +583,22 @@ def copy_from_to_dir(source_dir: str, dest_dir: str):
     Args:
         source_dir (str): Source directory path
         dest_dir (str): Destination directory path
+        
+    Raises:
+        ValueError: If source directory does not exist
     """
     source_path = Path(source_dir)
     dest_path = Path(dest_dir)
-
+    
     # Check if source directory exists
     if not source_path.exists():
-        raise ValueError(f"Source directory {source_dir} does not exist.")
+        raise ValueError(f"Source directory {source_path} does not exist")
 
-    # Ensure destination directory exists, recreate if it does
+    # Remove destination directory if it exists
     if dest_path.exists():
         shutil.rmtree(dest_path)
+
+    # Create destination directory
     dest_path.mkdir(parents=True)
 
     # Iterate through all files and directories in source
@@ -556,19 +607,24 @@ def copy_from_to_dir(source_dir: str, dest_dir: str):
         
         if item.is_dir():
             # Recursively copy subdirectories
-            dest_item.mkdir(exist_ok=True)
             copy_from_to_dir(str(item), str(dest_item))
         else:
-            # Copy individual files
-            shutil.copy2(str(item), str(dest_item))
+            # Copy individual files, preserving symlinks
+            if item.is_symlink():
+                target = os.readlink(str(item))
+                os.symlink(target, str(dest_item))
+            else:
+                shutil.copy2(str(item), str(dest_item))
 
 def extract_title(markdown: str) -> str:
     for line in markdown.split("\n"):
-        matches = re.split(r"^#", line)
-        if len(matches) > 1:
-            return matches[1].strip()
-        
-    raise Exception("No h1 header found in document")
+        # Only match single # for h1 headers
+        if line.strip().startswith('#') and not line.strip().startswith('##'):
+            title = line.strip()[1:].strip()
+            if title:
+                return title
+    
+    return "Untitled"
 
 def generate_page(from_path: str, template_path: str, dest_path: str):
     from_path = Path(from_path)
@@ -582,7 +638,7 @@ def generate_page(from_path: str, template_path: str, dest_path: str):
         source_markdown = from_file.read()
         html_version = markdown_to_html_node(source_markdown)
         title = extract_title(source_markdown)
-        new_document = re.sub(r'<title>.*?</title>', f'<title>{title}</title>', template).replace("{{ Content }}", html_version.to_html())
+        new_document = template.replace("{{ Title }}", title).replace("{{ Content }}", str(html_version))
         output_file.write(new_document)
 
 def generate_pages_recursive(dir_path_content: str, template_path: str, dest_dir_path: str):

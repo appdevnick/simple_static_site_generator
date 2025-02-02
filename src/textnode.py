@@ -33,7 +33,7 @@ class TextNode:
             case (TextType.ITALIC_TEXT):
                 return LeafNode("i", self.text, None, None)
             case (TextType.IMAGE):
-                return LeafNode("img", "", None, {"src": self.url, "alt": self.text})
+                return LeafNode("img", "", None, {"alt": self.text, "src": self.url})
             case (TextType.LINK):
                 return LeafNode("a", self.text, None, {"href": self.url})
             case (TextType.CODE):

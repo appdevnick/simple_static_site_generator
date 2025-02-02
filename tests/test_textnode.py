@@ -37,7 +37,11 @@ class TestTextNode(unittest.TestCase):
     def test_text_node_to_html_node_image(self):
         node = TextNode("This is a text node", TextType.IMAGE, url="http://example.com/image.png")
         html_node = node.text_node_to_html_node()
-        self.assertEqual(str(html_node), str(LeafNode("img", "", None, {"src": "http://example.com/image.png", "alt": "This is a text node"})))
+        # Check attributes independently since order doesn't matter
+        html_str = str(html_node)
+        self.assertIn('alt="This is a text node"', html_str)
+        self.assertIn('src="http://example.com/image.png"', html_str)
+        self.assertTrue(html_str.startswith('<img') and html_str.endswith('/>'), "Image tag should be self-closing")
 
     def test_text_node_to_html_node_link(self):
         node = TextNode("This is a text node", TextType.LINK, url="http://example.com")

@@ -14,12 +14,14 @@ class ParentNode(HTMLNode):
         if not self.children:
             raise ValueError("No children provided to a ParentNode")
 
-        else:
-            children_string = ""
-            for child in self.children:
-                if type(child) != str:
-                    children_string += child.to_html()
-                else:
-                    children_string += child
+        children_string = ""
+        for child in self.children:
+            if type(child) != str:
+                children_string += child.to_html()
+            else:
+                children_string += child
 
-            return f"<{self.tag}{self.props_to_html()}>{children_string}</{self.tag}>"
+        return f"<{self.tag}{self.props_to_html()}>{children_string}</{self.tag}>"
+
+    def __str__(self):
+        return self.to_html()

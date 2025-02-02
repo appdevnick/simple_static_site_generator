@@ -26,4 +26,4 @@ jobs:
     - name: Run tests
       run: |
         chmod +x test.sh
-        ./test.sh
+        PYTHONPATH=$PWD/src ./test.sh
