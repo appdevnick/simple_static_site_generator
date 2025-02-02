@@ -51,5 +51,22 @@ A bare-bones, Python-based static site generator that converts markdown content 
 5. Makes URLs that humans can actually read
 6. Has tests (because even Grug knows testing is good)
 
+## Development
+
+### Testing
+Tests are located in the `tests/` directory and can be run using:
+```bash
+./test.sh
+```
+
+### Continuous Integration
+This project uses GitHub Actions for CI. The workflow:
+- Runs on every push to main and pull requests
+- Sets up Python 3.10
+- Installs dependencies including pytest
+- Runs the test suite
+
+You can view the test results in the Actions tab of the GitHub repository.
+
 ## Development Practices
 I am attempting to follow good Python practices as I learn about them, and I will continue to come back and refine this toy project if I get inspired :smile:
